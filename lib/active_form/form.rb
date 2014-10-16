@@ -3,19 +3,26 @@ module ActiveForm
     include ActiveModel::Validations
 
     delegate :id, :_destroy, :persisted?, to: :model
-    attr_reader :association_name, :parent, :model, :forms, :proc
+    attr_reader :association_name, :parent, :model, :forms, :proc, :required
 
-    def initialize(assoc_name, parent, proc, model=nil)
+    def initialize(assoc_name, parent, proc, model=nil, options = {})
       @association_name = assoc_name
       @parent = parent
       @model = assign_model(model)
       @forms = []
       @proc = proc
+
+      @required = options[:required]
+      @touched = false
       enable_autosave
     end
 
     def class
       model.class
+    end
+
+    def required?
+      !!@required
     end
 
     def association(name, options={}, &block)
@@ -38,8 +45,13 @@ module ActiveForm
     end
 
     def attributes(*arguments)
+      options = arguments.pop if arguments.last.is_a?(Hash)
+
+      if options && options[:required]
+        @required = true
+      end
+
       class_eval do
-        options = arguments.pop if arguments.last.is_a?(Hash)
 
         if options && options[:required]
           validates_presence_of *arguments
@@ -76,12 +88,14 @@ module ActiveForm
     end
 
     def submit(params)
+      @touched = true
+
       reflection = association_reflection
-      
+
       if reflection.macro == :belongs_to
         @model = parent.send("build_#{association_name}") unless call_reject_if(params_for_current_scope(params))
       end
-      
+
       params.each do |key, value|
         if nested_params?(value)
           fill_association_with_attributes(key, value)
@@ -89,6 +103,10 @@ module ActiveForm
           model.send("#{key}=", value)
         end
       end
+    end
+
+    def touched?
+      @touched
     end
 
     def get_model(assoc_name)
@@ -112,7 +130,7 @@ module ActiveForm
 
       collect_errors_from(model)
       aggregate_form_errors
-      
+
       errors.empty?
     end
 
@@ -132,7 +150,7 @@ module ActiveForm
     def fill_association_with_attributes(association, attributes)
       assoc_name = find_association_name_in(association).to_sym
       form = find_form_by_assoc_name(assoc_name)
-      
+
       form.submit(attributes)
     end
 
@@ -187,6 +205,10 @@ module ActiveForm
 
     def aggregate_form_errors
       forms.each do |form|
+        if !form.required? && !form.touched?
+          next
+        end
+
         form.valid?
         collect_errors_from(form)
       end

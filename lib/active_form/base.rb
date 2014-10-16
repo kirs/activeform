@@ -5,16 +5,16 @@ module ActiveForm
 
     define_model_callbacks :save, only: [:after]
     after_save :update_form_models
-    
+
     delegate :persisted?, :to_model, :to_key, :to_param, :to_partial_path, to: :model
     attr_reader :model, :forms
-    
+
     def initialize(model)
       @model = model
       @forms = []
       populate_forms
     end
-    
+
     def submit(params)
       params.each do |key, value|
         if nested_params?(value)
@@ -47,8 +47,9 @@ module ActiveForm
       model.valid?
 
       collect_errors_from(model)
+
       aggregate_form_errors
-      
+
       errors.empty?
     end
 
@@ -79,7 +80,7 @@ module ActiveForm
 
         case macro
         when :has_one, :belongs_to
-          declare_form(name, &block)
+          declare_form(name, options, &block)
         when :has_many
           declare_form_collection(name, options, &block)
         end
@@ -87,13 +88,13 @@ module ActiveForm
         define_method("#{name}_attributes=") {}
       end
 
-      def declare_form_collection(name, options={}, &block)
+      def declare_form_collection(name, options, &block)
         forms << FormDefinition.new(name, block, options)
         class_eval("def #{name}; @#{name}.models; end")
       end
 
-      def declare_form(name, &block)
-        forms << FormDefinition.new(name, block)
+      def declare_form(name, options, &block)
+        forms << FormDefinition.new(name, block, options)
         attr_reader name
       end
 
@@ -143,6 +144,10 @@ module ActiveForm
 
     def aggregate_form_errors
       forms.each do |form|
+        if !form.required? && !form.touched?
+          next
+        end
+
         form.valid?
         collect_errors_from(form)
       end

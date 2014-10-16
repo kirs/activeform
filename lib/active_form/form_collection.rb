@@ -2,15 +2,21 @@ module ActiveForm
   class FormCollection
     include ActiveModel::Validations
 
-    attr_reader :association_name, :records, :parent, :proc, :forms
+    attr_reader :association_name, :records, :parent, :proc, :forms, :required
 
     def initialize(assoc_name, parent, proc, options)
       @association_name = assoc_name
       @parent = parent
       @proc = proc
       @records = options[:records] || 1
+      @required = !!options[:required]
       @forms = []
+      @touched = false
       assign_forms
+    end
+
+    def touched?
+      @touched
     end
 
     def update_models
@@ -19,6 +25,8 @@ module ActiveForm
     end
 
     def submit(params)
+      @touched = true
+
       params.each do |key, value|
         if parent.persisted?
           create_or_update_record(value)
@@ -29,7 +37,7 @@ module ActiveForm
     end
 
     def get_model(assoc_name)
-      form = Form.new(association_name, parent, proc)
+      form = Form.new(association_name, parent, proc, nil, required: required)
       form.instance_eval &proc
       form
     end
@@ -52,6 +60,10 @@ module ActiveForm
       forms.each do |form|
         block.call(form)
       end
+    end
+
+    def required?
+      @required
     end
 
     private
@@ -134,9 +146,9 @@ module ActiveForm
 
     def fetch_models
       associated_records = parent.send(association_name)
-      
+
       associated_records.each do |model|
-        form = Form.new(association_name, parent, proc, model)
+        form = Form.new(association_name, parent, proc, model, required: required)
         forms << form
         form.instance_eval &proc
       end
@@ -144,7 +156,7 @@ module ActiveForm
 
     def initialize_models
       records.times do
-        form = Form.new(association_name, parent, proc)
+        form = Form.new(association_name, parent, proc, nil, required: required)
         forms << form
         form.instance_eval &proc
       end
@@ -171,7 +183,7 @@ module ActiveForm
     end
 
     def create_form
-      new_form = Form.new(association_name, parent, proc)
+      new_form = Form.new(association_name, parent, proc, nil, required: required)
       forms << new_form
       new_form.instance_eval &proc
       new_form
