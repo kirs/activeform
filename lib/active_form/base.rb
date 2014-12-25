@@ -34,7 +34,7 @@ module ActiveForm
       if valid?
         run_callbacks :save do
           ActiveRecord::Base.transaction do
-              model.save
+            model.save
           end
         end
       else
@@ -85,7 +85,7 @@ module ActiveForm
         case macro
         when :has_one, :belongs_to
           declare_form(name, &block)
-        when :has_many
+        when :has_many, :has_and_belongs_to_many
           declare_form_collection(name, options, &block)
         end
 

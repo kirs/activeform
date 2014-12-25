@@ -8,7 +8,8 @@ module ActiveForm
     def initialize(assoc_name, parent, proc, model=nil)
       @association_name = assoc_name
       @parent = parent
-      @model = assign_model(model)
+      @model = model || build_model
+
       @forms = []
       @proc = proc
       enable_autosave
@@ -26,8 +27,9 @@ module ActiveForm
       case macro
       when :has_one, :belongs_to
         class_eval "def #{name}; @#{name}; end"
-      when :has_many
+      when :has_many, :has_and_belongs_to_many
         class_eval "def #{name}; @#{name}.models; end"
+      else
       end
 
       nested_form = form_definition.to_form
@@ -58,11 +60,14 @@ module ActiveForm
         class_eval do
           send(method_sym, *arguments, &block)
         end
+      else
+        # money workaround
+        @model.send(method_sym, *arguments, &block)
       end
     end
 
     def update_models
-      @model = parent.send("#{association_name}")
+      @model = parent.send(association_name.to_s)
     end
 
     REJECT_ALL_BLANK_PROC = proc { |attributes| attributes.all? { |key, value| key == '_destroy' || value.blank? } }
@@ -79,7 +84,10 @@ module ActiveForm
       reflection = association_reflection
 
       if reflection.macro == :belongs_to
-        @model = parent.send("build_#{association_name}") unless call_reject_if(params_for_current_scope(params))
+        rejected = call_reject_if(params_for_current_scope(params))
+        if parent.send(association_name).nil? && !rejected
+          @model = parent.send("build_#{association_name}")
+        end
       end
 
       params.each do |key, value|
@@ -157,31 +165,23 @@ module ActiveForm
 
       case macro
       when :belongs_to
-        if parent.send("#{association_name}")
-          parent.send("#{association_name}")
+        if existing = parent.send(association_name.to_s)
+          existing
         else
           association_reflection.klass.new
         end
       when :has_one
         fetch_or_initialize_model
-      when :has_many
+      when :has_many, :has_and_belongs_to_many
         parent.send(association_name).build
       end
     end
 
     def fetch_or_initialize_model
-      if parent.send("#{association_name}")
-        parent.send("#{association_name}")
+      if existing = parent.send("#{association_name}")
+        existing
       else
         parent.send("build_#{association_name}")
-      end
-    end
-
-    def assign_model(model)
-      if model
-        model
-      else
-        build_model
       end
     end
 

@@ -74,7 +74,7 @@ module ActiveForm
     end
 
     def existing_record?(attributes)
-      attributes[:id] != nil
+      attributes[:id].present?
     end
 
     def update_record(attributes)
