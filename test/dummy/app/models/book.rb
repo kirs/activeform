@@ -4,5 +4,7 @@ class Book < ActiveRecord::Base
 
   has_one :page
 
+  validates :title, presence: true
+
 end
 

@@ -33,10 +33,57 @@ class PageFormTest < ActiveSupport::TestCase
       @form.save
     end
 
-    # end
+    assert_equal "Chad Fowler", @form.book.authors[0].name
+    assert_equal "Chad Fowler", @page.book.authors[0].name
 
-    # assert_equal "Chad Fowler", @form.book.authors[0].name
-    # assert_equal "Chad Fowler", @page.book.authors[0].name
+    assert_equal "1st author", @form.book.authors[0].role
+    assert_equal "1st author", @page.book.authors[0].role
+
+    assert_equal "Dave Thomas", @form.book.authors[1].name
+    assert_equal "Dave Thomas", @page.book.authors[1].name
+
+    assert_equal "2nd author", @form.book.authors[1].role
+    assert_equal "2nd author", @page.book.authors[1].role
+
+    assert_equal 2, @page.book.authors.size
+    assert_equal 2, @form.book.authors.size
+  end
+
+  test "main form validates errors" do
+    @form.submit(merge_params({
+      book_attributes: {
+        title: "",
+        authors_attributes: {
+          "0" => { name: "" }
+        }
+      }
+    }))
+
+    assert_equal @form.book.model.object_id, @page.book.object_id
+    assert_equal @form.model.object_id, @page.object_id
+
+    assert_equal "page title", @form.title
+    assert_equal "page title", @page.title
+
+    assert_equal "", @form.book.title
+    assert_equal "", @page.book.title
+
+    assert_equal 2014, @form.book.year
+    assert_equal 2014, @page.book.year
+
+    assert_not @form.valid?
+
+    assert_includes @form.book.errors[:title], "can't be blank"
+    assert_equal 1, @form.book.errors[:title].size
+    # raise @form.book.errors.inspect
+
+
+
+    assert_equal "", @form.book.authors[0].name
+    assert_equal "", @page.book.authors[0].name
+
+    assert_includes @form.book.authors[0].errors.to_a, "Name can't be blank"
+    assert_equal 1, @form.book.authors[0].errors.size
 
     # assert_equal "1st author", @form.book.authors[0].role
     # assert_equal "1st author", @page.book.authors[0].role
@@ -47,10 +94,8 @@ class PageFormTest < ActiveSupport::TestCase
     # assert_equal "2nd author", @form.book.authors[1].role
     # assert_equal "2nd author", @page.book.authors[1].role
 
-    # # @form.save
-
-    assert_equal 2, @page.book.authors.size
-    assert_equal 2, @form.book.authors.size
+    # assert_equal 2, @page.book.authors.size
+    # assert_equal 2, @form.book.authors.size
   end
 
   # test "main form syncs its model and the models in nested sub-forms with dynamic key" do
